@@ -139,6 +139,7 @@ def calculate_measurements(results, scale_factor, image_width, image_height, dep
         return round(value * scale_factor, 2)
     
     def calculate_circumference(width_px, depth_ratio=1.0):
+        import cv2
         """Estimate circumference using width and depth adjustment."""
         # Using a simplified elliptical approximation: C ≈ 2π * sqrt((a² + b²)/2)
         # where a is half the width and b is estimated depth
