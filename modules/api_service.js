@@ -3,7 +3,7 @@
  * Communicates with the Python Flask backend
  */
 
-const API_URL = '/api';  // Production: uses same domain, Development: proxy to localhost:5000
+const API_URL = 'http://localhost:5000';  // Will update to production URL after backend deployment
 
 /**
  * Sends images and height to the local AI backend for measurement.

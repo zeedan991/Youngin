@@ -3,7 +3,7 @@
  * Handles AI chatbot interactions with Gemini backend
  */
 
-const API_URL = '/api';  // Production: uses same domain
+const API_URL = 'http://127.0.0.1:5000';  // Will update to production URL after backend deployment
 
 class ChatBot {
     constructor() {
