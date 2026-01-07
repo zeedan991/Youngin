@@ -3,7 +3,7 @@
  * Handles AI chatbot interactions with Gemini backend
  */
 
-const API_URL = 'http://127.0.0.1:5000';  // Will update to production URL after backend deployment
+const API_URL = '/api';  // Relative path works for both local (with proxy) and production
 
 class ChatBot {
     constructor() {
