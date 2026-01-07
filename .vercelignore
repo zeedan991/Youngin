@@ -1,0 +1,4 @@
+Live-Measurements-Api/__pycache__/
+Live-Measurements-Api/*.pyc
+Live-Measurements-Api/.env
+.git/
