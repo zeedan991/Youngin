@@ -7007,33 +7007,372 @@ html {
     }
 }
 
+/* ============================================
+   MOBILE MENU STYLES
+   ============================================ */
+
+/* Mobile Menu Button - Hidden by default, shown on mobile */
+.mobile-menu-btn {
+    display: none;
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    z-index: 3000;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: var(--glass-border);
+    color: white;
+    cursor: pointer;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+}
+
+.mobile-menu-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
+}
+
+.mobile-menu-btn .material-icons-round {
+    font-size: 24px;
+}
+
+/* Mobile Overlay */
+.mobile-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.mobile-overlay.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+
 @media (max-width: 768px) {
+
+    /* Root-level full width and ENABLE SCROLLING */
+    html,
+    body {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+        overflow-y: auto !important;
+        /* Enable vertical scrolling */
+        height: auto !important;
+        /* Remove height constraint */
+        margin: 0;
+        padding: 0;
+    }
+
+    body {
+        display: block !important;
+        /* Override flex display */
+    }
+
+    /* Show mobile menu button */
+    .mobile-menu-btn {
+        display: flex;
+    }
+
+    /* Show overlay when active */
+    .mobile-overlay {
+        display: block;
+    }
+
+    /* Sidebar - positioned off-screen, slides in when open */
+    nav.sidebar {
+        position: fixed;
+        left: -100%;
+        top: 0;
+        bottom: 0;
+        width: 280px;
+        z-index: 2500;
+        transition: left 0.3s ease;
+        display: flex !important;
+        /* Override any hidden class */
+    }
+
+    nav.sidebar.menu-open {
+        left: 0;
+        box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+    }
+
+    /* App container - full width and scrollable */
+    .app-container {
+        width: 100%;
+        max-width: 100%;
+        height: auto !important;
+        min-height: 100vh;
+        margin: 0;
+        padding: 0;
+        display: block !important;
+        overflow: visible;
+    }
+
+    /* Main content full width on mobile */
+    main.main-content {
+        left: 0;
+        right: 0;
+        width: 100%;
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Content sections - full width with padding */
+    .content-section {
+        width: 100%;
+        max-width: 100%;
+        padding: 80px 16px 20px;
+        /* Extra top padding for mobile menu button */
+        box-sizing: border-box;
+    }
+
+    /* Dashboard content - full width */
+    #dashboard,
+    #profile,
+    #market,
+    #local-hub,
+    #rich-rare,
+    #ai-sizing {
+        width: 100%;
+        max-width: 100%;
+        padding: 16px;
+        box-sizing: border-box;
+    }
+
+    /* Landing page hero */
     .hero-mega {
-        padding: 100px 20px 60px;
+        padding: 60px 20px 40px;
+        width: 100%;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    .hero-mega-content {
+        width: 100%;
+        max-width: 100%;
+        padding: 0;
     }
 
     .hero-mega-title {
-        font-size: 40px;
+        font-size: 32px;
+        line-height: 1.2;
     }
 
     .hero-mega-subtitle {
-        font-size: 18px;
+        font-size: 16px;
     }
 
     .hero-mega-ctas {
         flex-direction: column;
+        gap: 12px;
+        width: 100%;
     }
 
+    .btn-mega-primary,
+    .btn-mega-secondary {
+        width: 100%;
+        min-height: 48px;
+    }
+
+    /* Landing page sections - full width */
+    #landing-page {
+        width: 100%;
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
+    .features-bento-section,
+    .testimonials-mega-section,
+    .timeline-mega-section,
+    .cta-mega-section {
+        width: 100%;
+        max-width: 100%;
+        padding: 40px 16px;
+        box-sizing: border-box;
+    }
+
+    /* Section titles */
     .section-title-mega {
-        font-size: 36px;
+        font-size: 28px;
     }
 
     .cta-mega-title {
-        font-size: 40px;
+        font-size: 32px;
     }
 
+    /* Bento grid - single column */
+    .bento-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    .bento-card {
+        padding: 20px;
+    }
+
+    /* Testimonials - single column */
     .testimonials-grid {
         grid-template-columns: 1fr;
+        gap: 16px;
+    }
+
+    /* Dashboard stats - single column */
+    .stats-dashboard-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+
+    /* Trending grid - single column */
+    .trending-grid,
+    .trending-grid-premium {
+        grid-template-columns: 1fr;
+    }
+
+    /* Dashboard grid - single column */
+    .dashboard-grid,
+    .dashboard-grid-premium {
+        grid-template-columns: 1fr;
+    }
+
+    /* Top bar - stack vertically */
+    .top-bar {
+        position: relative;
+        width: 100%;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 16px;
+        box-sizing: border-box;
+    }
+
+    .top-bar h2 {
+        font-size: 20px;
+    }
+
+    /* Studio section - full width */
+    #studio {
+        width: 100%;
+        max-width: 100%;
+        padding: 16px;
+        box-sizing: border-box;
+    }
+
+    .studio-placeholder,
+    .studio-container {
+        width: 100%;
+        max-width: 100%;
+        padding: 20px 16px;
+        box-sizing: border-box;
+    }
+
+    /* Canvas and design area - full width */
+    .canvas-container,
+    .design-canvas {
+        width: 100% !important;
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* Product grids - single column */
+    .product-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Modals - full width on mobile */
+    .modal {
+        width: 95%;
+        max-width: none;
+        padding: 24px;
+    }
+
+    /* Touch-friendly buttons */
+    button,
+    .btn-primary,
+    .btn-outline {
+        min-height: 44px;
+    }
+
+    /* Form inputs - prevent zoom on iOS */
+    input,
+    select,
+    textarea {
+        font-size: 16px;
+    }
+
+    /* Landing nav - smaller */
+    .landing-nav {
+        padding: 12px 16px;
+    }
+
+    .landing-nav .logo h1 {
+        font-size: 20px;
+    }
+
+    /* Timeline - vertical */
+    .timeline-mega {
+        padding: 0 16px;
+    }
+
+    /* CTA section */
+    .cta-mega-section {
+        padding: 40px 20px;
+    }
+
+    .cta-mega-buttons {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .btn-mega-outline {
+        width: 100%;
+        min-height: 48px;
+    }
+
+    /* FAQ - single column */
+    .faq-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* Profile section */
+    .profile-hero-banner {
+        padding: 30px 16px;
+    }
+
+    .username-premium {
+        font-size: 24px;
+    }
+
+    /* Filters - horizontal scroll */
+    .filters {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Hero card - stack vertically */
+    .hero-card-dash {
+        flex-direction: column;
+        padding: 24px 16px;
+        text-align: center;
+    }
+
+    .hero-actions-dash {
+        flex-direction: column;
+        width: 100%;
+        gap: 12px;
     }
 }
 

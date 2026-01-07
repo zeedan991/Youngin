@@ -1,9 +1,9 @@
 /**
- * API Service for Local AI Sizing
- * Communicates with the Python Flask backend running on localhost:5000
+ * API Service Module
+ * Communicates with the Python Flask backend
  */
 
-const API_URL = 'http://localhost:5000';
+const API_URL = '/api';  // Production: uses same domain, Development: proxy to localhost:5000
 
 /**
  * Sends images and height to the local AI backend for measurement.

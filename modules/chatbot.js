@@ -1,9 +1,9 @@
 /**
  * Chatbot Module
- * Handles the sidebar chat interface and communication with Gemini backend.
+ * Handles AI chatbot interactions with Gemini backend
  */
 
-const API_URL = 'http://127.0.0.1:5000';
+const API_URL = '/api';  // Production: uses same domain
 
 class ChatBot {
     constructor() {
