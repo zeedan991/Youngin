@@ -139,7 +139,6 @@ def calculate_measurements(results, scale_factor, image_width, image_height, dep
         return round(value * scale_factor, 2)
     
     def calculate_circumference(width_px, depth_ratio=1.0):
-        import cv2
         """Estimate circumference using width and depth adjustment."""
         # Using a simplified elliptical approximation: C ≈ 2π * sqrt((a² + b²)/2)
         # where a is half the width and b is estimated depth
@@ -157,7 +156,7 @@ def calculate_measurements(results, scale_factor, image_width, image_height, dep
     shoulder_width_px = abs(left_shoulder.x * image_width - right_shoulder.x * image_width)
     
     # Apply a slight correction factor for shoulders (they're usually detected well)
-    shoulder_correction = 1.1  # 10% wider
+    shoulder_correction = 1.05  # 5% wider
     shoulder_width_px *= shoulder_correction
     
     measurements["shoulder_width"] = pixel_to_cm(shoulder_width_px)
@@ -166,15 +165,17 @@ def calculate_measurements(results, scale_factor, image_width, image_height, dep
     chest_y_ratio = 0.15  # Approximately 15% down from shoulder to hip
     chest_y = left_shoulder.y + (landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y - left_shoulder.y) * chest_y_ratio
     
-    chest_correction = 1.15  # 15% wider than detected width
-    chest_width_px = abs((right_shoulder.x - left_shoulder.x) * image_width) * chest_correction
+    # Start with shoulder width as base estimate
+    chest_width_px = abs((right_shoulder.x - left_shoulder.x) * image_width)
     
     if frame is not None:
         chest_y_px = int(chest_y * image_height)
         center_x = (left_shoulder.x + right_shoulder.x) / 2
         detected_width = get_body_width_at_height(frame, chest_y_px, center_x)
         if detected_width > 0:
-            chest_width_px = max(chest_width_px, detected_width)
+            chest_width_px = detected_width  # Use contour detection directly
+        else:
+            chest_width_px *= 1.1  # Only apply 10% correction if contour detection fails
     
     chest_depth_ratio = 1.0
     if depth_map is not None:
@@ -187,7 +188,7 @@ def calculate_measurements(results, scale_factor, image_width, image_height, dep
         if 0 <= chest_y_scaled < 384 and 0 <= chest_x_scaled < 384:
             chest_depth = depth_map[chest_y_scaled, chest_x_scaled]
             max_depth = np.max(depth_map)
-            chest_depth_ratio = 1.0 + 0.5 * (1.0 - chest_depth / max_depth)
+            chest_depth_ratio = 1.0 + 0.2 * (1.0 - chest_depth / max_depth)
     
     measurements["chest_width"] = pixel_to_cm(chest_width_px)
     measurements["chest_circumference"] = calculate_circumference(chest_width_px, chest_depth_ratio)
@@ -207,17 +208,13 @@ def calculate_measurements(results, scale_factor, image_width, image_height, dep
         center_x = (left_hip.x + right_hip.x) / 2
         detected_width = get_body_width_at_height(frame, waist_y_px, center_x)
         if detected_width > 0:
-            waist_width_px = detected_width
+            waist_width_px = detected_width  # Use contour detection directly
         else:
             # Fallback to hip width if contour detection fails
-            waist_width_px = abs(right_hip.x - left_hip.x) * image_width * 0.9  # 90% of hip width
+            waist_width_px = abs(right_hip.x - left_hip.x) * image_width * 0.85  # 85% of hip width
     else:
         # Fallback to hip width if no frame is provided
-        waist_width_px = abs(right_hip.x - left_hip.x) * image_width * 0.9  # 90% of hip width
-
-    # Apply 30% correction factor to waist width
-    waist_correction = 1.16  # 30% wider
-    waist_width_px *= waist_correction
+        waist_width_px = abs(right_hip.x - left_hip.x) * image_width * 0.85  # 85% of hip width
 
     # Get depth adjustment for waist if available
     waist_depth_ratio = 1.0
@@ -231,34 +228,35 @@ def calculate_measurements(results, scale_factor, image_width, image_height, dep
         if 0 <= waist_y_scaled < 384 and 0 <= waist_x_scaled < 384:
             waist_depth = depth_map[waist_y_scaled, waist_x_scaled]
             max_depth = np.max(depth_map)
-            waist_depth_ratio = 1.0 + 0.5 * (1.0 - waist_depth / max_depth)
+            waist_depth_ratio = 1.0 + 0.2 * (1.0 - waist_depth / max_depth)
 
     measurements["waist_width"] = pixel_to_cm(waist_width_px)
     measurements["waist"] = calculate_circumference(waist_width_px, waist_depth_ratio)
     # Hip Measurement
-    hip_correction = 1.05  # Hips are slightly wider than detected landmarks
+    hip_correction = 1.1  # Hips are typically 10% wider than detected landmarks
     hip_width_px = abs(left_hip.x * image_width - right_hip.x * image_width) * hip_correction
     
-    # DISABLED: Contour detection was inflating hip measurements
-    # if frame is not None:
-    #     hip_y_offset = 0.1  # 10% down from hip landmarks
-    #     hip_y = left_hip.y + (landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y - left_hip.y) * hip_y_offset
-    #     hip_y_px = int(hip_y * image_height)
-    #     center_x = (left_hip.x + right_hip.x) / 2
-    #     detected_width = get_body_width_at_height(frame, hip_y_px, center_x)
-    #     if detected_width > 0:
-    #         hip_width_px = max(hip_width_px, detected_width)
+    if frame is not None:
+        hip_y_offset = 0.1  # 10% down from hip landmarks
+        hip_y = left_hip.y + (landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y - left_hip.y) * hip_y_offset
+        hip_y_px = int(hip_y * image_height)
+        center_x = (left_hip.x + right_hip.x) / 2
+        detected_width = get_body_width_at_height(frame, hip_y_px, center_x)
+        if detected_width > 0:
+            hip_width_px = max(hip_width_px, detected_width)
     
     hip_depth_ratio = 1.0
     if depth_map is not None:
         hip_x = int(((left_hip.x + right_hip.x) / 2) * image_width)
         hip_y_px = int(left_hip.y * image_height)
+        scale_y = 384 / image_height
+        scale_x = 384 / image_width
         hip_y_scaled = int(hip_y_px * scale_y)
         hip_x_scaled = int(hip_x * scale_x)
         if 0 <= hip_y_scaled < 384 and 0 <= hip_x_scaled < 384:
             hip_depth = depth_map[hip_y_scaled, hip_x_scaled]
             max_depth = np.max(depth_map)
-            hip_depth_ratio = 1.0 + 0.5 * (1.0 - hip_depth / max_depth)
+            hip_depth_ratio = 1.0 + 0.2 * (1.0 - hip_depth / max_depth)
     
     measurements["hip_width"] = pixel_to_cm(hip_width_px)
     measurements["hip"] = calculate_circumference(hip_width_px, hip_depth_ratio)
@@ -365,7 +363,7 @@ def validate_front_image(image_np):
                 missing_upper.append(landmark.name.replace('_', ' '))
         
         if missing_upper:
-            logger.debug(f"Validation Failed. Missing: {missing_upper}")
+            print(f"Validation Failed. Missing: {missing_upper}")
             return False, f"Couldn't detect full upper body. Please make sure your head and shoulders are visible."
 
         # Check if this might be just a face/selfie (no torso)
@@ -384,7 +382,7 @@ def validate_front_image(image_np):
         return True, "Validation passed - proceeding with measurements"
         
     except Exception as e:
-        logger.error(f"Error validating body image: {e}")
+        print(f"Error validating body image: {e}")
         return False, "You arent providing images correctly. Please try again."
     
 @app.route("/measurements", methods=["POST"])
@@ -419,7 +417,7 @@ def upload_images():
     if not user_height_cm:
         user_height_cm = request.form.get('height')
 
-    logger.info(f"Processing measurement request - Height: {user_height_cm}cm")
+    print(f"User Height: {user_height_cm}")
 
     if user_height_cm:
         try:
@@ -441,7 +439,7 @@ def upload_images():
         image_np = np.frombuffer(image_file.read(), np.uint8)
         frame = cv2.imdecode(image_np, cv2.IMREAD_COLOR)
         if frame is None:
-            logger.error(f"Could not decode image for {pose_name}")
+            print(f"Error: Could not decode image for {pose_name}")
             continue # Skip invalid files instead of crashing
             
         frames[pose_name] = frame  # Store the frame for contour detection
@@ -486,7 +484,7 @@ def upload_images():
         "user_height_cm": float(user_height_cm)
     }
 
-    logger.info(f"Measurements calculated successfully")
+    print(measurements)
     
     # Convert numpy types to native python types for JSON serialization
     def convert_numpy(obj):
@@ -508,47 +506,43 @@ def upload_images():
 from google import genai
 from google.genai import types
 
-# Configure Gemini API from environment variable
-GENAI_API_KEY = os.getenv('GENAI_API_KEY')
-if not GENAI_API_KEY:
-    logger.warning("GENAI_API_KEY not found in environment variables. Chatbot will not work.")
-    client = None
-else:
-    client = genai.Client(api_key=GENAI_API_KEY)
+# Configure Gemini API
+GENAI_API_KEY = "AIzaSyBvFIPuJjli9PWN6F8aWrd-84bAyLx-rXs" # Provided by user
+
+# Initialize Client
+client = genai.Client(api_key=GENAI_API_KEY)
 
 # System Instruction
-sys_instruction = """You are YOUNGIN's AI Assistant—representing a world-class fashion technology platform.
+# System Instruction
+sys_instruction = """You are the specialized AI Assistant for 'YOUNGIN', a premium custom clothing design platform. 
+Your tone is professional, sophisticated, and helpful—matching the aesthetic of a billion-dollar fashion tech company.
 
-**Communication Style:**
-- Ultra-professional, concise, and sophisticated
-- Responses under 3 sentences when possible
-- Clear, actionable information
-- No technical jargon unless requested
+You possess deep knowledge of the YOUNGIN platform:
 
-**Platform Knowledge:**
+1. **AI Sizing Technology**: 
+   - We use advanced computer vision (MediaPipe) and depth estimation (MiDaS) to calculate body measurements from a single photo.
+   - **Privacy First**: User photos are processed in-memory for seconds and then discarded. We store only the measurement data (numbers), never the images.
+   - Accuracy: Our system is calibrated to within 98% accuracy. We recommend wearing tight-fitting clothes for best results.
 
-**AI Sizing**
-- Instant body measurements from one photo using computer vision
-- 98% accuracy with tight-fitting clothing
-- Privacy-first: photos processed in seconds, never stored
+2. **Custom Design Studio**:
+   - Users can design t-shirts, hoodies, and pants from scratch.
+   - Features: Drag-and-drop assets, upload custom images, change fabric colors, and view in real-time.
+   - We use high-fidelity fabric rendering.
 
-**Design Studio**
-- Custom t-shirts, hoodies, and pants
-- Real-time design with drag-and-drop tools
-- Premium fabric rendering
+3. **Fabric Quality & Production**:
+   - We source only premium, sustainable fabrics (Organic Cotton, Bamboo blends, Italian Silk).
+   - All garments are cut-and-sew, made to order based on the user's specific measurements.
+   - Production time: 3-5 business days.
 
-**Quality & Production**
-- Sustainable fabrics: Organic Cotton, Bamboo, Italian Silk
-- Made-to-order based on your exact measurements
-- Ships in 3-5 business days
+4. **Shipping & Accounts**:
+   - Global shipping available (Standard: 7-10 days, Express: 2-3 days).
+   - Users must log in to save designs and see their measurement profile.
 
-**Response Rules:**
-1. Keep answers brief and direct
-2. Use bullet points for clarity
-3. For unknowns: "Contact support@youngin.com for assistance"
-4. Never mention backend technologies
-
-**Tone:** Think Apple meets haute couture—premium, minimal, precise.
+**Guidelines**:
+- Be concise but polite. 
+- Use formatting (bullet points) for readability.
+- If you don't know an answer, suggest contacting `support@youngin.com` rather than guessing.
+- Do not mention internal technical details (like 'Python' or 'Flask') unless asked specifically.
 """
 
 # Keep a simple history wrapper or just send context each time for stateless simplicity
@@ -559,8 +553,6 @@ chat_history = [
 
 @app.route("/chat", methods=["POST"])
 def chat_endpoint():
-    if not client:
-        return jsonify({"error": "Chatbot service is currently unavailable"}), 503
     try:
         data = request.json
         user_message = data.get("message", "")
@@ -585,11 +577,11 @@ def chat_endpoint():
                 return jsonify({"error": "I couldn't generate a response. Please try rephrasing."}), 500
 
         except Exception as api_err:
-            logger.error(f"Gemini API Error: {api_err}")
+            print(f"Gemini API Error: {api_err}")
             return jsonify({"error": "I am currently experiencing high traffic. Please try again later."}), 500
         
     except Exception as e:
-        logger.error(f"Server Error in /chat: {e}")
+        print(f"Server Error in /chat: {e}")
         return jsonify({"error": "Internal Server Error"}), 500
 
 if __name__ == '__main__':
