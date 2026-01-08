@@ -141,182 +141,81 @@ def calculate_measurements(results, scale_factor, image_width, image_height, dep
     def pixel_to_cm(value):
         return round(value * scale_factor, 2)
     
-    def calculate_circumference(width_px, depth_ratio=1.0):
-        """Estimate circumference using width and depth adjustment."""
-        # Using a simplified elliptical approximation: C ≈ 2π * sqrt((a² + b²)/2)
-        # where a is half the width and b is estimated depth
-        width_cm = width_px * scale_factor
-        estimated_depth_cm = width_cm * depth_ratio * 0.5  # Depth is typically ~50% of width for torso
+    def calculate_circumference(width_cm, depth_ratio=0.6):
+        """
+        Estimate circumference using width and anatomically correct depth ratio.
+        For human torso, depth is typically 50-70% of width.
+        Formula: C ≈ 2π * sqrt((a² + b²)/2) where a=width/2, b=depth/2
+        """
+        estimated_depth_cm = width_cm * depth_ratio
         half_width = width_cm / 2
         half_depth = estimated_depth_cm / 2
         return round(2 * np.pi * np.sqrt((half_width**2 + half_depth**2) / 2), 2)
 
     measurements = {}
 
-    # Shoulder Width
+    # Get key landmarks
     left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
     right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
-    shoulder_width_px = abs(left_shoulder.x * image_width - right_shoulder.x * image_width)
-    
-    # Apply a slight correction factor for shoulders (they're usually detected well)
-    shoulder_correction = 1.05  # 5% wider
-    shoulder_width_px *= shoulder_correction
-    
-    measurements["shoulder_width"] = pixel_to_cm(shoulder_width_px)
-
-    # Chest/Bust Measurement
-    chest_y_ratio = 0.15  # Approximately 15% down from shoulder to hip
-    chest_y = left_shoulder.y + (landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y - left_shoulder.y) * chest_y_ratio
-    
-    # Start with shoulder width as base estimate
-    chest_width_px = abs((right_shoulder.x - left_shoulder.x) * image_width)
-    
-    if frame is not None:
-        chest_y_px = int(chest_y * image_height)
-        center_x = (left_shoulder.x + right_shoulder.x) / 2
-        detected_width = get_body_width_at_height(frame, chest_y_px, center_x)
-        if detected_width > 0:
-            chest_width_px = detected_width  # Use contour detection directly
-        else:
-            chest_width_px *= 1.1  # Only apply 10% correction if contour detection fails
-    
-    chest_depth_ratio = 1.0
-    if depth_map is not None:
-        chest_x = int(((left_shoulder.x + right_shoulder.x) / 2) * image_width)
-        chest_y_px = int(chest_y * image_height)
-        scale_y = 384 / image_height
-        scale_x = 384 / image_width
-        chest_y_scaled = int(chest_y_px * scale_y)
-        chest_x_scaled = int(chest_x * scale_x)
-        if 0 <= chest_y_scaled < 384 and 0 <= chest_x_scaled < 384:
-            chest_depth = depth_map[chest_y_scaled, chest_x_scaled]
-            max_depth = np.max(depth_map)
-            chest_depth_ratio = 1.0 + 0.2 * (1.0 - chest_depth / max_depth)
-    
-    measurements["chest_width"] = pixel_to_cm(chest_width_px)
-    measurements["chest_circumference"] = calculate_circumference(chest_width_px, chest_depth_ratio)
-    
-
-    # Waist Measurement
     left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value]
     right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value]
-
-    # Adjust waist_y_ratio to better reflect the natural waistline
-    waist_y_ratio = 0.35  # 35% down from shoulder to hip (higher than before)
-    waist_y = left_shoulder.y + (left_hip.y - left_shoulder.y) * waist_y_ratio
-
-    # Use contour detection to dynamically estimate waist width
-    if frame is not None:
-        waist_y_px = int(waist_y * image_height)
-        center_x = (left_hip.x + right_hip.x) / 2
-        detected_width = get_body_width_at_height(frame, waist_y_px, center_x)
-        if detected_width > 0:
-            waist_width_px = detected_width  # Use contour detection directly
-        else:
-            # Fallback to hip width if contour detection fails
-            waist_width_px = abs(right_hip.x - left_hip.x) * image_width * 0.85  # 85% of hip width
-    else:
-        # Fallback to hip width if no frame is provided
-        waist_width_px = abs(right_hip.x - left_hip.x) * image_width * 0.85  # 85% of hip width
-
-    # Get depth adjustment for waist if available
-    waist_depth_ratio = 1.0
-    if depth_map is not None:
-        waist_x = int(((left_hip.x + right_hip.x) / 2) * image_width)
-        waist_y_px = int(waist_y * image_height)
-        scale_y = 384 / image_height
-        scale_x = 384 / image_width
-        waist_y_scaled = int(waist_y_px * scale_y)
-        waist_x_scaled = int(waist_x * scale_x)
-        if 0 <= waist_y_scaled < 384 and 0 <= waist_x_scaled < 384:
-            waist_depth = depth_map[waist_y_scaled, waist_x_scaled]
-            max_depth = np.max(depth_map)
-            waist_depth_ratio = 1.0 + 0.2 * (1.0 - waist_depth / max_depth)
-
-    measurements["waist_width"] = pixel_to_cm(waist_width_px)
-    measurements["waist"] = calculate_circumference(waist_width_px, waist_depth_ratio)
-    # Hip Measurement
-    hip_correction = 1.1  # Hips are typically 10% wider than detected landmarks
-    hip_width_px = abs(left_hip.x * image_width - right_hip.x * image_width) * hip_correction
-    
-    if frame is not None:
-        hip_y_offset = 0.1  # 10% down from hip landmarks
-        hip_y = left_hip.y + (landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value].y - left_hip.y) * hip_y_offset
-        hip_y_px = int(hip_y * image_height)
-        center_x = (left_hip.x + right_hip.x) / 2
-        detected_width = get_body_width_at_height(frame, hip_y_px, center_x)
-        if detected_width > 0:
-            hip_width_px = max(hip_width_px, detected_width)
-    
-    hip_depth_ratio = 1.0
-    if depth_map is not None:
-        hip_x = int(((left_hip.x + right_hip.x) / 2) * image_width)
-        hip_y_px = int(left_hip.y * image_height)
-        scale_y = 384 / image_height
-        scale_x = 384 / image_width
-        hip_y_scaled = int(hip_y_px * scale_y)
-        hip_x_scaled = int(hip_x * scale_x)
-        if 0 <= hip_y_scaled < 384 and 0 <= hip_x_scaled < 384:
-            hip_depth = depth_map[hip_y_scaled, hip_x_scaled]
-            max_depth = np.max(depth_map)
-            hip_depth_ratio = 1.0 + 0.2 * (1.0 - hip_depth / max_depth)
-    
-    measurements["hip_width"] = pixel_to_cm(hip_width_px)
-    measurements["hip"] = calculate_circumference(hip_width_px, hip_depth_ratio)
-
-    # Other measurements (unchanged)
-    neck = landmarks[mp_pose.PoseLandmark.NOSE.value]
-    left_ear = landmarks[mp_pose.PoseLandmark.LEFT_EAR.value]
-    neck_width_px = abs(neck.x * image_width - left_ear.x * image_width) * 2.0
-    measurements["neck"] = calculate_circumference(neck_width_px, 1.0)
-    measurements["neck_width"] = pixel_to_cm(neck_width_px)
-
+    left_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
+    left_ankle = landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value]
     left_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value]
-    sleeve_length_px = abs(left_shoulder.y * image_height - left_wrist.y * image_height)
-    measurements["arm_length"] = pixel_to_cm(sleeve_length_px)
+    nose = landmarks[mp_pose.PoseLandmark.NOSE.value]
+    left_ear = landmarks[mp_pose.PoseLandmark.LEFT_EAR.value]
 
-    shirt_length_px = abs(left_shoulder.y * image_height - left_hip.y * image_height) * 1.2
+    # SHOULDER WIDTH - Most reliable measurement
+    shoulder_width_px = abs(left_shoulder.x - right_shoulder.x) * image_width
+    shoulder_width_cm = pixel_to_cm(shoulder_width_px)
+    measurements["shoulder_width"] = shoulder_width_cm
+
+    # CHEST - Use shoulder width as base (chest is typically 1.1-1.15x shoulder width)
+    chest_width_cm = shoulder_width_cm * 1.12
+    measurements["chest_width"] = round(chest_width_cm, 2)
+    measurements["chest_circumference"] = calculate_circumference(chest_width_cm, depth_ratio=0.65)
+
+    # WAIST - Typically 0.75-0.85x of shoulder width for average build
+    # Use hip landmarks to estimate waist position
+    hip_width_px = abs(left_hip.x - right_hip.x) * image_width
+    hip_width_cm = pixel_to_cm(hip_width_px)
+    
+    # Waist is typically narrower than both shoulders and hips
+    waist_width_cm = min(shoulder_width_cm * 0.80, hip_width_cm * 0.85)
+    measurements["waist_width"] = round(waist_width_cm, 2)
+    measurements["waist"] = calculate_circumference(waist_width_cm, depth_ratio=0.55)
+
+    # HIP - Use hip landmarks with slight correction
+    hip_width_cm = hip_width_cm * 1.08  # Hips extend slightly beyond landmarks
+    measurements["hip_width"] = round(hip_width_cm, 2)
+    measurements["hip"] = calculate_circumference(hip_width_cm, depth_ratio=0.60)
+
+    # NECK - Use distance from nose to ear
+    neck_width_px = abs(nose.x - left_ear.x) * image_width * 2.2
+    neck_width_cm = pixel_to_cm(neck_width_px)
+    measurements["neck_width"] = round(neck_width_cm, 2)
+    measurements["neck"] = calculate_circumference(neck_width_cm, depth_ratio=0.85)
+
+    # ARM LENGTH - Shoulder to wrist
+    arm_length_px = abs(left_shoulder.y - left_wrist.y) * image_height
+    measurements["arm_length"] = pixel_to_cm(arm_length_px)
+
+    # SHIRT LENGTH - Shoulder to hip with 20% extension
+    shirt_length_px = abs(left_shoulder.y - left_hip.y) * image_height * 1.20
     measurements["shirt_length"] = pixel_to_cm(shirt_length_px)
 
-     # Thigh Circumference (improved with depth information)
-    thigh_y_ratio = 0.2  # 20% down from hip to knee
-    left_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
-    thigh_y = left_hip.y + (left_knee.y - left_hip.y) * thigh_y_ratio
-    
-    # Apply correction factor for thigh width
-    thigh_correction = 1.2  # Thighs are typically wider than what can be estimated from front view
-    thigh_width_px = hip_width_px * 0.5 * thigh_correction  # Base thigh width on hip width
-    
-    # Use contour detection if frame is available
-    if frame is not None:
-        thigh_y_px = int(thigh_y * image_height)
-        thigh_x = left_hip.x * 0.9  # Move slightly inward from hip
-        detected_width = get_body_width_at_height(frame, thigh_y_px, thigh_x)
-        if detected_width > 0 and detected_width < hip_width_px:  # Sanity check
-            thigh_width_px = detected_width  # Use detected width
-    
-    # If depth map is available, use it for thigh measurement
-    thigh_depth_ratio = 1.0
-    if depth_map is not None:
-        thigh_x = int(left_hip.x * image_width)
-        thigh_y_px = int(thigh_y * image_height)
-        
-        # Scale coordinates to match depth map size
-        thigh_y_scaled = int(thigh_y_px * scale_y)
-        thigh_x_scaled = int(thigh_x * scale_x)
-        
-        if 0 <= thigh_y_scaled < 384 and 0 <= thigh_x_scaled < 384:
-            thigh_depth = depth_map[thigh_y_scaled, thigh_x_scaled]
-            max_depth = np.max(depth_map)
-            thigh_depth_ratio = 1.0 + 0.5 * (1.0 - thigh_depth / max_depth)
-    
-    measurements["thigh"] = pixel_to_cm(thigh_width_px)
-    measurements["thigh_circumference"] = calculate_circumference(thigh_width_px, thigh_depth_ratio)
+    # THIGH - Typically 0.55-0.60x of hip width
+    thigh_width_cm = hip_width_cm * 0.57
+    measurements["thigh"] = round(thigh_width_cm, 2)
+    measurements["thigh_circumference"] = calculate_circumference(thigh_width_cm, depth_ratio=0.70)
 
-
-    left_ankle = landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value]
-    trouser_length_px = abs(left_hip.y * image_height - left_ankle.y * image_height)
+    # TROUSER LENGTH - Hip to ankle
+    trouser_length_px = abs(left_hip.y - left_ankle.y) * image_height
     measurements["trouser_length"] = pixel_to_cm(trouser_length_px)
+
+    # INSEAM - Knee to ankle (more accurate for pants)
+    inseam_px = abs(left_knee.y - left_ankle.y) * image_height
+    measurements["inseam"] = pixel_to_cm(inseam_px)
 
     return measurements
 
