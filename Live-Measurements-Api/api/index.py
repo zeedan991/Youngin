@@ -21,7 +21,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "*"}})  # Enable CORS for all routes
+
+# Configure CORS - update with your Vercel domain after deployment
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+CORS(app, resources={r"/*": {"origins": ALLOWED_ORIGINS}})
 
 mp_pose = mp.solutions.pose
 mp_holistic = mp.solutions.holistic
@@ -385,6 +388,11 @@ def validate_front_image(image_np):
         print(f"Error validating body image: {e}")
         return False, "You arent providing images correctly. Please try again."
     
+@app.route("/health", methods=["GET"])
+def health_check():
+    """Health check endpoint for monitoring"""
+    return jsonify({"status": "healthy", "service": "youngin-api"}), 200
+
 @app.route("/measurements", methods=["POST"])
 def upload_images():
     # Create a mutable copy of files
@@ -507,7 +515,7 @@ from google import genai
 from google.genai import types
 
 # Configure Gemini API
-GENAI_API_KEY = "AIzaSyBvFIPuJjli9PWN6F8aWrd-84bAyLx-rXs" # Provided by user
+GENAI_API_KEY = os.getenv("GEMINI_API_KEY", "AIzaSyBvFIPuJjli9PWN6F8aWrd-84bAyLx-rXs")  # Fallback for local dev
 
 # Initialize Client
 client = genai.Client(api_key=GENAI_API_KEY)

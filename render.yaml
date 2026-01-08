@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: youngin-backend
+    runtime: python
+    region: oregon
+    plan: free
+    branch: main
+    buildCommand: cd Live-Measurements-Api && pip install -r requirements.txt
+    startCommand: cd Live-Measurements-Api/api && gunicorn --bind 0.0.0.0:$PORT index:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: "*"
+    healthCheckPath: /health
